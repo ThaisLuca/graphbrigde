@@ -12,6 +12,7 @@ import argparse
 from torch_geometric.utils import to_undirected
 from torchinfo import summary
 
+from experiments import experiments
 
 
 def evaluate(g, features, labels, mask, model):
@@ -51,6 +52,7 @@ def train_model(args, g, features, labels, masks, model, optimizer):
     test_mask = masks[2]
     loss_fcn = nn.CrossEntropyLoss()
 
+
     dur = []
     best_model=None
     best=0
@@ -73,6 +75,8 @@ def train_model(args, g, features, labels, masks, model, optimizer):
 
         dur.append(time.time() - t0)
 
+        #print('Entrei', len(train_mask), len(val_mask), len(test_mask))
+        
         train_acc = evaluate(g, features, labels, train_mask, model)
         val_acc = evaluate(g, features, labels, val_mask, model)
         test_acc = evaluate(g, features, labels, test_mask, model)
@@ -116,77 +120,92 @@ if __name__ == "__main__":
                         help='embedding dimensions (default: 300)')
     parser.add_argument('--graph_pooling', type=str, default="mean",
                         help='graph level pooling (sum, mean, max, set2set, attention)')
-    parser.add_argument('--gnn_type', type=str, default="GCN")
-    parser.add_argument('--dataset', type=str, default = 'Cora', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = './mid_hard/pre_trained_gnn/ogbn_arxiv.GraphCL.GCN.2.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--gnn_type', type=str, default="GIN")
+    parser.add_argument('--dataset', type=str, default = 'yeast', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--input_model_file', type=str, default = './pre_trained_gnn/uwcse.GraphCL.GCN.2.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
+    parser.add_argument('--num_part', type=int, default = 500, help='filename to read the model (if there is any)')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
     parser.add_argument('--eval_train', type=int, default = 1, help='evaluating training or not')
     parser.add_argument('--num_workers', type=int, default = 4, help='number of workers for dataset loading')
-    parser.add_argument('--tuning_methods', type=str, default = 'finetune', help='tuning methods for transfer learning')
+    parser.add_argument('--tuning_methods', type=str, default = 'merge_sidetune', help='tuning methods for transfer learning')
     parser.add_argument('--tuning', type=int, default = 1, help='tuning or not')
     args = parser.parse_args()
 
+    for exp in experiments:
+        source = exp['source']
+        target = exp['target']
 
-    torch.manual_seed(args.runseed)
-    np.random.seed(args.runseed)
-    device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.runseed)
-    print(device)
-    
-    dataname = args.dataset
-    dataset = pk.load(open('./dataset/{}/feature_reduced.data'.format(dataname), 'br'))
-    dataset = dataset
-    data = dataset.data.to(device)
-    num_class = dataset.num_classes
-    print('xxxx',dataset, data, num_class)
-    
-    # data preprocess
-    x = data.x.detach()
-    edge_index = data.edge_index
-    edge_index = to_undirected(edge_index)
+        args.input_model_file = './pre_trained_gnn/{}.GraphCL.GCN.2.pth'.format(source)
+        args.dataset = target
 
-    
-    print()
-    input_dim = out_dim = 100
-    num_class = 7
-    if args.tuning_methods == 'finetune':
-        model = GNN_nodepred(input_dim, num_class, args.hid_dim, out_dim, gcn_layer_num=args.num_layer, gnn_type=args.gnn_type)
-    elif args.tuning_methods == 'sidetune':
-        model = GNN_nodepred_side(feat_dim=input_dim, num_class=num_class, out_dim=out_dim, num_layer=args.num_layer, hid_dim=args.hid_dim, 
-                                  gnn_type=args.gnn_type, num_side_layer=2, side_hid_dim=16)
-    elif args.tuning_methods == 'laddersidetune':
-        model = GNN_nodepred_ladderside(input_dim, num_class, args.hid_dim, out_dim, gcn_layer_num=args.num_layer, gnn_type=args.gnn_type, down_dim=16)
-    elif args.tuning_methods == 'merge_sidetune':
-        model = GNN_nodepred_merg_side(feat_dim=input_dim, num_class=num_class, out_dim=out_dim, num_layer=args.num_layer, hid_dim=args.hid_dim, 
-                                  gnn_type=args.gnn_type, num_side_layer=2, side_hid_dim=16)
-    elif args.tuning_methods == 'merge_laddersidetune':
-        model = GNN_nodepred_merg_ladderside(input_dim, num_class, args.hid_dim, out_dim, gcn_layer_num=args.num_layer, gnn_type=args.gnn_type, down_dim=16)
+        torch.manual_seed(args.runseed)
+        np.random.seed(args.runseed)
+        device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(args.runseed)
+        print(device)
 
-    model.to(device)
-    if  args.input_model_file != "" and args.tuning:
-        model.from_pretrained(args.input_model_file, device)
-        print("Load pretrain model: {}".format(args.input_model_file))
+        dataname, num_parts = args.dataset, args.num_part
+        
+        #Thais
+        mypath = 'dataset/{}/'.format(dataname)   
+        dataset = torch.load(mypath + '{}_data_full.pt'.format(dataname), weights_only=False)
+        data = Data(**dataset) 
+        #dataset = pk.load(open('./dataset/{}/feature_reduced.data'.format(dataname), 'br'))
+        #dataset = dataset
+        data = data.to(device)
+        #num_class = dataset.num_classes
+        #print('xxxx',dataset, data, num_class)
+        
+        # data preprocess
+        x = data.x.detach()
+        edge_index = data.edge_index
+        edge_index = to_undirected(edge_index)
+
+
         print()
-    # print(model)
-    print(summary(model))
-    
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.decay)
-    print(optimizer)
+        input_dim = out_dim = 100
+        num_class = 2
+        if args.tuning_methods == 'finetune':
+            model = GNN_nodepred(input_dim, num_class, args.hid_dim, out_dim, gcn_layer_num=args.num_layer, gnn_type=args.gnn_type)
+        elif args.tuning_methods == 'sidetune':
+            model = GNN_nodepred_side(feat_dim=input_dim, num_class=num_class, out_dim=out_dim, num_layer=args.num_layer, hid_dim=args.hid_dim, 
+                                    gnn_type=args.gnn_type, num_side_layer=2, side_hid_dim=16)
+        elif args.tuning_methods == 'laddersidetune':
+            model = GNN_nodepred_ladderside(input_dim, num_class, args.hid_dim, out_dim, gcn_layer_num=args.num_layer, gnn_type=args.gnn_type, down_dim=16)
+        elif args.tuning_methods == 'merge_sidetune':
+            model = GNN_nodepred_merg_side(feat_dim=input_dim, num_class=num_class, out_dim=out_dim, num_layer=args.num_layer, hid_dim=args.hid_dim, 
+                                    gnn_type=args.gnn_type, num_side_layer=2, side_hid_dim=16)
+        elif args.tuning_methods == 'merge_laddersidetune':
+            model = GNN_nodepred_merg_ladderside(input_dim, num_class, args.hid_dim, out_dim, gcn_layer_num=args.num_layer, gnn_type=args.gnn_type, down_dim=16)
 
-    labels = data.y
-    masks = [data.train_mask, data.val_mask, data.test_mask]
-    print(sum(data.train_mask==True))
-    print(sum(data.val_mask==True))
-    print(sum(data.test_mask==True))
-    before_acc= evaluate(edge_index, x, labels, data.test_mask, model)
-    print("ACCURACY BEFORE TUNING: {:.4f} ".format(before_acc))
-    best_model, best_epoch, test_acc_ls = train_model(args, edge_index, x, labels, masks, model, optimizer)
-    after_acc= evaluate(edge_index, x, labels, data.test_mask, best_model)
-    print("ACCURACY AFTER TUNING: {:.4f}, Epoch:{:04d}".format(after_acc, best_epoch))
+        model.to(device)
+        if  args.input_model_file != "" and args.tuning:
+            model.from_pretrained(args.input_model_file, device)
+            print("Load pretrain model: {}".format(args.input_model_file))
+            print()
+        # print(model)
+        print(summary(model))
+        
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.decay)
+        print(optimizer)
 
-    with open('outputs/result.log', 'a+') as f:
-        f.write(args.input_model_file + ' ' + args.dataset+ ' ' + args.gnn_type + ' ' + args.tuning_methods + ' ' +str(args.tuning) + ' ' + str(after_acc) +  ' ' + str(best_epoch))
-        f.write('\n')
+        labels = data.y.long()
+
+        num_nodes = data.x.shape[0]
+
+        masks = [data.train_mask, data.val_mask, data.test_mask]
+        print(sum(data.train_mask==True))
+        print(sum(data.val_mask==True))
+        print(sum(data.test_mask==True))
+        before_acc= evaluate(edge_index, x, labels, data.test_mask, model)
+        print("ACCURACY BEFORE TUNING: {:.4f} ".format(before_acc))
+        best_model, best_epoch, test_acc_ls = train_model(args, data.edge_index, data.x, labels, masks, model, optimizer)
+        after_acc= evaluate(edge_index, x, labels, data.test_mask, best_model)
+        print("ACCURACY AFTER TUNING: {:.4f}, Epoch:{:04d}".format(after_acc, best_epoch))
+
+        with open('outputs/result_{source}_{target}.log'.format(source,target), 'a+') as f:
+            f.write(args.input_model_file + ' ' + args.dataset+ ' ' + args.gnn_type + ' ' + args.tuning_methods + ' ' +str(args.tuning) + ' ' + str(after_acc) +  ' ' + str(best_epoch))
+            f.write('\n')
