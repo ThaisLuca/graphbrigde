@@ -10,22 +10,22 @@ experiments = [
     #{'id': '10', 'source':'twitter', 'target':'nell_sports', 'predicate':'accounttype', 'to_predicate':'teamplayssport', 'arity': 2},
     #{'id': '10', 'source':'twitter', 'target':'cora', 'predicate':'accounttype', 'to_predicate':'samevenue', 'arity': 2},
 
-    {'id': '3', 'source':'nell_sports', 'target':'nell_finances', 'predicate':'teamplayssport', 'to_predicate':'companyeconomicsector', 'arity': 2},
+    #{'id': '3', 'source':'nell_sports', 'target':'nell_finances', 'predicate':'teamplayssport', 'to_predicate':'companyeconomicsector', 'arity': 2},
     #{'id': '6', 'source':'nell_sports', 'target':'yeast', 'predicate':'teamplayssport', 'to_predicate':'proteinclass', 'arity': 2},
     #{'id': '6', 'source':'nell_sports', 'target':'twitter', 'predicate':'teamplayssport', 'to_predicate':'accounttype', 'arity': 2},
     #{'id': '6', 'source':'nell_sports', 'target':'cora', 'predicate':'teamplayssport', 'to_predicate':'samevenue', 'arity': 2},
     
-    {'id': '4', 'source':'nell_finances', 'target':'nell_sports', 'predicate':'companyeconomicsector', 'to_predicate':'teamplayssport', 'arity': 2},
+    #{'id': '4', 'source':'nell_finances', 'target':'nell_sports', 'predicate':'companyeconomicsector', 'to_predicate':'teamplayssport', 'arity': 2},
     #{'id': '8', 'source':'nell_finances', 'target':'yeast', 'predicate':'companyeconomicsector', 'to_predicate':'proteinclass', 'arity': 2},
     #{'id': '11', 'source':'nell_finances', 'target':'twitter', 'predicate':'companyeconomicsector', 'to_predicate':'accounttype', 'arity': 2},
     #{'id': '11', 'source':'nell_finances', 'target':'cora', 'predicate':'companyeconomicsector', 'to_predicate':'samevenue', 'arity': 2},
     
-    {'id': '5', 'source':'cora', 'target':'yeast', 'predicate':'samevenue', 'to_predicate':'proteinclass', 'arity': 2, 'splits': 5},
+    #{'id': '5', 'source':'cora', 'target':'yeast', 'predicate':'samevenue', 'to_predicate':'proteinclass', 'arity': 2, 'splits': 5},
     #{'id': '7', 'source':'cora', 'target':'nell_sports', 'predicate':'samevenue', 'to_predicate':'teamplayssport', 'arity': 2},
     #{'id': '9', 'source':'cora', 'target':'nell_finances', 'predicate':'samevenue', 'to_predicate':'companyeconomicsector', 'arity': 2},
     #{'id': '12', 'source':'cora', 'target':'twitter', 'predicate':'samevenue', 'to_predicate':'accounttype', 'arity': 2},
 
-    #{'id': '6', 'source': 'imdb', 'target': 'uwcse', 'predicate': 'workedunder', 'to_predicate': 'advisedby', 'arity': 2}
+    #{'id': '6', 'source': 'imdb', 'target': 'uwcse', 'predicate': 'workedunder', 'to_predicate': 'advisedby', 'arity': 2},
     #{'id': '7', 'source': 'uwcse', 'target': 'imdb', 'predicate': 'advisedby', 'to_predicate': 'workedunder', 'arity': 2}
             ]
 
