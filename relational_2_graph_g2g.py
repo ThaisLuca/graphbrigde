@@ -106,7 +106,7 @@ def build_dataset(literals, constants_and_relations, relations, fold):
                     facts += constants_and_relations[nd]
 
             if facts:
-                graph_list.append(create_subhgraph(facts,tgt,fold,attributes, e_attributes, i))
+                graph_list.append(create_subhgraph(facts, tgt, fold, attributes, e_attributes, i))
                 targets.append(tgt)
     return graph_list
 
@@ -234,15 +234,30 @@ class MoleculeDataset_aug(InMemoryDataset):
         src_pos   = src_data[1]
         src_neg   = src_data[2]
 
-        n_folds = len(src_facts)
+        if source in ['nell_sports', 'nell_finances', 'yago2s']:
+            n_folds = 3
+        else:
+            n_folds = len(src_facts)
+
 
         graph_list = []
         for i in range(n_folds):
             print('\n Starting fold {} of {} folds \n'.format(i+1, n_folds))
 
-            #src_facts_fold = [rel for rel in src_facts[i] if 'recursion' not in rel] #filter relations that use recursion
-            src_pos_fold = src_pos[i]
-            src_neg_fold = src_neg[i]
+            if source in ['nell_sports', 'nell_finances', 'yago2s']:
+                #[src_train_facts, src_test_facts] =  [src_data[0][0], src_data[0][0]]
+                to_folds_pos = datasets.split_into_folds(src_data[1][0], n_folds=n_folds, seed=441773)
+                to_folds_neg = datasets.split_into_folds(src_data[2][0], n_folds=n_folds, seed=441773)
+                [src_train_pos, src_test_pos] =  datasets.get_kfold_small(i, to_folds_pos)
+                [src_train_neg, src_test_neg] =  datasets.get_kfold_small(i, to_folds_neg)
+
+                src_pos_fold = src_train_pos + src_test_pos
+                src_neg_fold = src_train_neg + src_test_neg
+
+            else:
+                #src_facts_fold = [rel for rel in src_facts[i] if 'recursion' not in rel] #filter relations that use recursion
+                src_pos_fold = src_pos[i]
+                src_neg_fold = src_neg[i]
 
             #constants_and_relations, relations = map_constants_and_relations(src_facts_fold)
 
