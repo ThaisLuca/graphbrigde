@@ -1,6 +1,7 @@
 import argparse
 
 import os
+import json
 from loader import MoleculeDataset
 from torch_geometric.data import DataLoader
 
@@ -27,7 +28,9 @@ def train(args, model, device, loader, optimizer):
         batch = batch.to(device)
         # print('batch')
         pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
-        y = batch.y.view(pred.shape).to(torch.float64)
+        y = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
+        #y = batch.y.view(pred.shape).to(torch.float64)
+        #y = batch.y.to(torch.float64)
 
         #Whether y is non-null or not.
         is_valid = y**2 > 0
@@ -43,7 +46,7 @@ def train(args, model, device, loader, optimizer):
         optimizer.step()
 
 
-def eval(args, model, device, loader):
+def eval(args, model, device, loader, only_pred=False):
     model.eval()
     y_true = []
     y_scores = []
@@ -54,8 +57,13 @@ def eval(args, model, device, loader):
         with torch.no_grad():
             pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
 
-        y_true.append(batch.y.view(pred.shape))
+        y_one_hot = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
+        #y_true.append(batch.y.view(pred.shape))
+        y_true.append(y_one_hot)
         y_scores.append(pred)
+    
+    if only_pred:
+        return y_scores
 
     y_true = torch.cat(y_true, dim = 0).cpu().numpy()
     y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
@@ -63,7 +71,7 @@ def eval(args, model, device, loader):
     roc_list = []
     for i in range(y_true.shape[1]):
         #AUC is only defined when there is at least one positive data.
-        if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == -1) > 0:
+        if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == 0) > 0:
             is_valid = y_true[:,i]**2 > 0
             roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
 
@@ -100,8 +108,8 @@ def main():
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'yeast', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = './models_simgrace/simgrace_80.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--dataset', type=str, default = 'cora', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_yeast_1.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -165,8 +173,8 @@ def main():
 
     PATH = f'''{os.getcwd()}/datasets/'''
     train_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=1)
-    valid_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=1)
-    test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=1)
+    valid_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=2)
+    test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=3)
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
@@ -176,9 +184,23 @@ def main():
     model = GNN_graphpred_side(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling)
     model.to(device)
     if not args.input_model_file == "":
-        model.from_pretrained(args.input_model_file, device)
+        path = f'''{os.getcwd()}/easy/'''
+        model.from_pretrained(path + args.input_model_file, device)
     print(model)
     
+    # Get predictions for test dataset
+    logits = eval(args, model, device, test_loader, only_pred=True)
+    predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
+    
+    # Save to a JSON file
+    try:
+        path = os.getcwd()
+        os.mkdir(path + "/probabilities")
+    except:
+        print("probabilities folder already created")
+
+    with open(path + f"/probabilities/{args.dataset}_probabilities.json", "w") as json_file:
+        json.dump(predictions, json_file)
 
     #set up optimizer
     #different learning rate for different part of GNN
@@ -216,6 +238,11 @@ def main():
         print("")
     # for i in model.named_parameters():
     #     print(i)
+    try:
+        os.mkdir('outputs')
+    except:
+        pass
+    
     with open('outputs/sidetune_result.log', 'a+') as f:
         f.write(args.dataset + ' ' + str(args.runseed) + ' ' + str(max(np.array(test_acc_list))))
         f.write('\n')

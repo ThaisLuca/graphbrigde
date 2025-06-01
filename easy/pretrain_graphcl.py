@@ -106,9 +106,37 @@ def train(args, model, device, dataset, optimizer, epoch):
         train_loss_accum += float(loss.detach().cpu().item())
         # acc = (torch.sum(positive_score > 0) + torch.sum(negative_score < 0)).to(torch.float32)/float(2*len(positive_score))
         acc = torch.tensor(0)
+
+        threshold=0.7
+        similarity = torch.nn.functional.cosine_similarity(x1, x2, dim=-1)
+        correct = (similarity > threshold).float()
+        acc = correct.sum() / len(correct)
+
         train_acc_accum += float(acc.detach().cpu().item())
 
     return train_acc_accum/(step+1), train_loss_accum/(step+1)
+
+
+def eval(args, model, device, loader):
+    model.eval()
+    #y_true = []
+    y_scores = []
+
+    for step, batch in enumerate(tqdm(loader, desc="Iteration")):
+        batch = batch.to(device)
+
+        with torch.no_grad():
+            pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+
+        #y_one_hot = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
+        #y_true.append(batch.y.view(pred.shape))
+        #y_true.append(y_one_hot)
+        y_scores.append(pred)
+
+    #y_true = torch.cat(y_true, dim = 0).cpu().numpy()
+    y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
+
+    return y_scores
 
 
 def main():
@@ -132,7 +160,7 @@ def main():
                         help='dropout ratio (default: 0)')
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
-    parser.add_argument('--dataset', type=str, default = 'yeast', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--dataset', type=str, default = 'cora', help='root directory of dataset. For now, only classification.')
     parser.add_argument('--output_model_file', type = str, default = '', help='filename to output the pre-trained model')
     parser.add_argument('--gnn_type', type=str, default="gin")
     parser.add_argument('--seed', type=int, default=0, help = "Seed for splitting dataset.")
@@ -179,7 +207,8 @@ def main():
         print('train_loss',train_loss)
 
         if epoch % 20 == 0:
-            torch.save(gnn.state_dict(), "./models_graphcl/graphcl_" + args.dataset + "_" + str(epoch) + ".pth")
-
+            PATH = f'''{os.getcwd()}/easy/'''
+            torch.save(gnn.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_" + str(epoch) + ".pth")
+    
 if __name__ == "__main__":
     main()
