@@ -17,6 +17,7 @@ import numpy as np
 from model import GNN
 from sklearn.metrics import roc_auc_score
 
+import time
 from splitters import scaffold_split, random_split, random_scaffold_split
 import pandas as pd
 
@@ -142,7 +143,7 @@ def eval(args, model, device, loader):
 def main():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=1,
+    parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=256,
                         help='input batch size for training (default: 256)')
@@ -178,10 +179,9 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)
 
-
     #set up dataset
     import os
-    PATH = f'''{os.getcwd()}/datasets/'''
+    PATH = f'''{os.getcwd()}/datasets/'''.replace('easy', 'data_processing')
     dataset = MoleculeDataset_aug(PATH + args.dataset, dataset=args.dataset)
     #dataset = torch.load(f'''dataset/{source}/{source}_data_full.pt''', weights_only=False)
     print("data",dataset)
@@ -198,6 +198,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay)
     print("optim",optimizer)
 
+    start = time.time()
     for epoch in range(1, args.epochs):
         print("====epoch " + str(epoch))
     
@@ -209,6 +210,8 @@ def main():
         if epoch % 20 == 0:
             PATH = f'''{os.getcwd()}/easy/'''
             torch.save(gnn.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_" + str(epoch) + ".pth")
+    end = time.time()
+    print(f"Time to train {args.dataset}: {end-start}")
     
 if __name__ == "__main__":
     main()

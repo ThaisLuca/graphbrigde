@@ -337,7 +337,7 @@ class MoleculeDataset_aug(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return 'geometric_data_processed.pt'
+        return 'geometric_data_processed_full.pt'
 
     def download(self):
         pass
@@ -893,8 +893,7 @@ class MoleculeDataset(InMemoryDataset):
         self.transform, self.pre_transform, self.pre_filter = transform, pre_transform, pre_filter
 
         if not empty:
-            self._data, self.slices = torch.load(self.processed_paths[0])
-
+            self._data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     def get(self, idx):
         data = Data()
@@ -909,19 +908,22 @@ class MoleculeDataset(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        pass
-        #file_name_list = os.listdir(self.raw_dir)
+        try:
+            file_name_list = os.listdir(self.raw_dir)
         # assert len(file_name_list) == 1     # currently assume we have a
         # # single raw file
-        #return file_name_list
+        except:
+            file_name_list = []
+        return file_name_list
 
     @property
     def processed_file_names(self):
         return f'geometric_data_processed_{self.fold}.pt'
 
     def download(self):
-        raise NotImplementedError('Must indicate valid location of raw data. '
-                                  'No download allowed')
+        pass
+        #raise NotImplementedError('Must indicate valid location of raw data. '
+        #                          'No download allowed')
 
     def process(self):
         data_smiles_list = []
