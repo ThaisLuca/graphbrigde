@@ -1,5 +1,6 @@
 import argparse
 
+import time
 import os
 import json
 from loader import MoleculeDataset
@@ -108,8 +109,8 @@ def main():
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'cora', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_yeast_1.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--dataset', type=str, default = 'yeast', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_cora_80.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -171,7 +172,7 @@ def main():
 
     #print(train_dataset[0])
 
-    PATH = f'''{os.getcwd()}/datasets/'''
+    PATH = f'''{os.getcwd()}/datasets/'''.replace('easy', 'data_processing')
     train_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=1)
     valid_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=2)
     test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=3)
@@ -184,7 +185,7 @@ def main():
     model = GNN_graphpred_side(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling)
     model.to(device)
     if not args.input_model_file == "":
-        path = f'''{os.getcwd()}/easy/'''
+        path = f'''{os.getcwd()}/'''
         model.from_pretrained(path + args.input_model_file, device)
     print(model)
     
@@ -215,6 +216,7 @@ def main():
     test_acc_list = []
 
     print('side tuning ...')
+    start = time.time()
     for epoch in range(1, args.epochs+1):
         print("====epoch " + str(epoch))
         
@@ -236,6 +238,8 @@ def main():
         train_acc_list.append(train_acc)
 
         print("")
+
+    end = time.time()
     # for i in model.named_parameters():
     #     print(i)
     try:
@@ -243,8 +247,9 @@ def main():
     except:
         pass
     
-    with open('outputs/sidetune_result.log', 'a+') as f:
+    with open(f'outputs/{args.dataset}_sidetune_result.log', 'a+') as f:
         f.write(args.dataset + ' ' + str(args.runseed) + ' ' + str(max(np.array(test_acc_list))))
+        f.write('time: ' + str(end-start))
         f.write('\n')
 
 if __name__ == "__main__":
