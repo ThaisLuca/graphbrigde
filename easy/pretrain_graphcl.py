@@ -208,7 +208,7 @@ def main():
         print('train_loss',train_loss)
 
         if epoch % 20 == 0:
-            PATH = f'''{os.getcwd()}/easy/'''
+            PATH = f'''{os.getcwd()}/'''
             torch.save(gnn.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_" + str(epoch) + ".pth")
     end = time.time()
     print(f"Time to train {args.dataset}: {end-start}")
