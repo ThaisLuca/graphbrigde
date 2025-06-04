@@ -105,13 +105,13 @@ def train(args, model, device, dataset, optimizer, epoch):
         optimizer.step()
 
         train_loss_accum += float(loss.detach().cpu().item())
-        # acc = (torch.sum(positive_score > 0) + torch.sum(negative_score < 0)).to(torch.float32)/float(2*len(positive_score))
+        #acc = (torch.sum(positive_score > 0) + torch.sum(negative_score < 0)).to(torch.float32)/float(2*len(positive_score))
         acc = torch.tensor(0)
 
-        threshold=0.7
-        similarity = torch.nn.functional.cosine_similarity(x1, x2, dim=-1)
-        correct = (similarity > threshold).float()
-        acc = correct.sum() / len(correct)
+        #threshold=0.7
+        #similarity = torch.nn.functional.cosine_similarity(x1, x2, dim=-1)
+        #correct = (similarity > threshold).float()
+        #acc = correct.sum() / len(correct)
 
         train_acc_accum += float(acc.detach().cpu().item())
 
@@ -210,8 +210,14 @@ def main():
         if epoch % 20 == 0:
             PATH = f'''{os.getcwd()}/'''
             torch.save(gnn.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_" + str(epoch) + ".pth")
+    
     end = time.time()
     print(f"Time to train {args.dataset}: {end-start}")
+    torch.save(gnn.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_final.pth")
+
+    with open(f'outputs/{args.dataset}_pretrain_result.log', 'a+') as f:
+        f.write('time: ' + str(end-start))
+        f.write('\n')
     
 if __name__ == "__main__":
     main()
