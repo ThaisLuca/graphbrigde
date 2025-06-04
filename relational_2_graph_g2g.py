@@ -93,7 +93,10 @@ def build_dataset(literals, constants_and_relations, relations, fold):
     attributes = list(constants_and_relations.keys())
     e_attributes = list(set(relations))
 
-    for tgt,pin in enumerate(["neg", "pos"]):
+    tgt_code = {"neg": -1, "pos": 1}
+
+    for pin in ["neg", "pos"]:
+        tgt = tgt_code[pin]
         for i,dt in enumerate(literals[pin]):
 
             relation = re.findall(r'([a-z\d_]+)\(', dt)[0]
@@ -264,7 +267,6 @@ class MoleculeDataset_aug(InMemoryDataset):
             #print(constants_and_relations)
         
             curr_graph_list = build_dataset({"pos": src_pos_fold, "neg": src_neg_fold}, constants_and_relations, relations, i)
-            print(len(curr_graph_list))
 
             for idx,item in enumerate(curr_graph_list):
                 graph_list.append(item)
@@ -274,7 +276,6 @@ class MoleculeDataset_aug(InMemoryDataset):
             torch.save((data, slices), f'''datasets/{source}/processed/geometric_data_processed_{i+1}.pt''')
         
         data, slices = self.collate(graph_list)
-        print(len(graph_list))
         torch.save((data, slices), f'''datasets/{source}/processed/geometric_data_processed_full.pt''')
         #torch.save(graph_list, f'''dataset/{source}/{source}_data_full.pt''')
 
