@@ -58,9 +58,9 @@ def eval(args, model, device, loader, only_pred=False):
         with torch.no_grad():
             pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
 
-        #y_one_hot = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
-        y_true.append(batch.y.view(pred.shape))
-        y_true.append(y_true)
+        y_one_hot = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
+        #y_true.append(batch.y.view(pred.shape))
+        y_true.append(y_one_hot)
         y_scores.append(pred)
     
     if only_pred:
