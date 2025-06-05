@@ -40,8 +40,15 @@ def create_subhgraph(facts, label, fold, attributes, e_attributes, id=1):
             constants_unary_relations[data[0]] = relation
         else:
             relations.append(relation)
-            ent1,ent2 = data[0].split(",")
-            edges.append((ent1,ent2,relation))
+
+            if 'ta' in relation:
+                ent1,ent2,ent3 = data[0].split(",")
+                edges.append((ent1,ent2,relation))
+                edges.append((ent1,ent3,relation))
+                edges.append((ent2,ent3,relation))
+            else:
+                ent1,ent2 = data[0].split(",")
+                edges.append((ent1,ent2,relation))
 
         for nd in data[0].split(","):
 
