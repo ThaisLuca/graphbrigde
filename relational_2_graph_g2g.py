@@ -18,6 +18,9 @@ from get_datasets import datasets
 
 from experiments import bk, experiments, sizes
 
+unary_relations = {'imdb': {'female': '', 'actor': '', 'director': ''},
+                   'uwcse': {'student': '', 'professor': ''}}
+
 
 relations, constants_and_relations = [],{}
 
@@ -26,16 +29,19 @@ def load_file(filename):
         return file.read()
     
 def create_subhgraph(facts, label, fold, attributes, e_attributes, id=1):
-    relations, nodes, edges, numbers, constants = [],[],[],[],[]
+    relations, nodes, edges, numbers, constants_unary_relations = [],[],[],[],{}
 
     for lit in facts:
 
         relation = re.findall(r'([a-z\d_]+)\(', lit)[0]
         data = re.findall(r'\((.*?)\)', lit)
 
-        relations.append(relation)
-        ent1,ent2 = data[0].split(",")
-        edges.append((ent1,ent2,relation))
+        if ',' not in data[0]: # unary relation
+            constants_unary_relations[data[0]] = relation
+        else:
+            relations.append(relation)
+            ent1,ent2 = data[0].split(",")
+            edges.append((ent1,ent2,relation))
 
         for nd in data[0].split(","):
 
@@ -62,13 +68,16 @@ def create_subhgraph(facts, label, fold, attributes, e_attributes, id=1):
         
         aux = np.zeros((len(attributes)))
         aux[np.where(np.array(attributes) == node)] = 1
+
+        if node in constants_unary_relations:
+            aux[np.where(np.array(attributes) == constants_unary_relations[node])] = 1
         
         x[mapping_v[node]] = aux.copy()
 
     # Map edges and its attributes
     edge_attr = torch.empty((len(edges), len(e_attributes)), dtype=torch.long) 
     edge_index = torch.empty((2, len(edges)), dtype=torch.long)
-    for i, (src, dst,relation) in enumerate(edges):
+    for i, (src,dst,relation) in enumerate(edges):
         edge_index[0, i] = mapping_v[src]
         edge_index[1, i] = mapping_v[dst]
 
@@ -116,16 +125,16 @@ def build_dataset(literals, constants_and_relations, relations, fold):
 def map_constants_and_relations(facts):
     constants_relations = {}
     relations = []
+
     for dt in facts:
 
         relation = re.findall(r'([a-z\d_]+)\(', dt)[0]
         data = re.findall(r'\((.*?)\)', dt)
 
-        if relation not in relations:
+        if relation not in relations and ',' in data[0]:
             relations.append(relation)
 
         for nd in data[0].split(","):
-            
             if nd not in constants_relations:
                 constants_relations[nd] = []
             
@@ -242,6 +251,8 @@ class MoleculeDataset_aug(InMemoryDataset):
         else:
             n_folds = len(src_facts)
 
+        if source in ['imdb', 'uwcse']:
+            constants_and_relations.update(unary_relations[source])
 
         graph_list = []
         for i in range(n_folds):
