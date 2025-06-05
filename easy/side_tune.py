@@ -29,9 +29,9 @@ def train(args, model, device, loader, optimizer):
         batch = batch.to(device)
         # print('batch')
         pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
-        #y = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
+        y = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
         #y = batch.y.view(pred.shape).to(torch.float64)
-        y = batch.y.to(torch.float64)
+        #y = batch.y.to(torch.float64)
 
         #Whether y is non-null or not.
         is_valid = y**2 > 0
