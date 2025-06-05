@@ -68,7 +68,7 @@ def eval(args, model, device, loader, only_pred=False):
 
     y_true = torch.cat(y_true, dim = 0).cpu().numpy()
     y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
-
+    
     roc_list = []
     for i in range(y_true.shape[1]):
         #AUC is only defined when there is at least one positive data.
