@@ -112,7 +112,7 @@ def main():
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
     parser.add_argument('--dataset', type=str, default = 'yeast', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_cora_80.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_cora_final.pth', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
@@ -227,6 +227,7 @@ def main():
         print("====Evaluation")
         if args.eval_train:
             train_acc = eval(args, model, device, train_loader)
+            pretrained_acc = eval(args, model, device, test_loader)
         else:
             print("omit the training accuracy computation")
             train_acc = 0
@@ -250,7 +251,8 @@ def main():
         pass
     
     with open(f'outputs/{args.dataset}_sidetune_result.log', 'a+') as f:
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Train ' + str(max(np.array(train_acc))))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' Train ' + str(max(np.array(train_acc)))) 
+        f.write(args.dataset + ' ' + str(args.runseed) + ' Pre-Train ' + str(max(np.array(pretrained_acc))))
         f.write(args.dataset + ' ' + str(args.runseed) + ' Test ' + str(max(np.array(test_acc_list))))
         f.write('time: ' + str(end-start))
         f.write('\n')
