@@ -34,9 +34,11 @@ def train(args, model, device, loader, optimizer):
         #y = batch.y.to(torch.float64)
 
         #Whether y is non-null or not.
-        is_valid = y**2 > 0
+        #is_valid = y**2 > 0
+        is_valid = (y == 0) | (y == 1)
         #Loss matrix
-        loss_mat = criterion(pred.double(), (y+1)/2)
+        #loss_mat = criterion(pred.double(), (y+1)/2)
+        loss_mat = criterion(pred.double(), y)
         #loss matrix after removing null target
         loss_mat = torch.where(is_valid, loss_mat, torch.zeros(loss_mat.shape).to(loss_mat.device).to(loss_mat.dtype))
             
@@ -68,15 +70,15 @@ def eval(args, model, device, loader, only_pred=False):
 
     y_true = torch.cat(y_true, dim = 0).cpu().numpy()
     y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
-    
+
     roc_list = []
     for i in range(y_true.shape[1]):
         #AUC is only defined when there is at least one positive data.
-        if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == -1) > 0:
-            is_valid = y_true[:,i]**2 > 0
-            roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
-            #is_valid = (y_true[:, i] == 0) | (y_true[:, i] == 1)
-            #roc_list.append(roc_auc_score(y_true[is_valid, i], y_scores[is_valid, i]))
+        if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == 0) > 0:
+            #is_valid = y_true[:,i]**2 > 0
+            #roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
+            is_valid = (y_true[:, i] == 0) | (y_true[:, i] == 1)
+            roc_list.append(roc_auc_score(y_true[is_valid, i], y_scores[is_valid, i]))
     
     if len(roc_list) < y_true.shape[1]:
         print("Some target is missing!")
@@ -119,6 +121,7 @@ def main():
     parser.add_argument('--split', type = str, default="scaffold", help = "random or scaffold or random_scaffold")
     parser.add_argument('--eval_train', type=int, default = 1, help='evaluating training or not')
     parser.add_argument('--num_workers', type=int, default = 4, help='number of workers for dataset loading')
+    parser.add_argument('--source', type=str, default = 'cora', help='root directory of dataset. For now, only classification.')
     args = parser.parse_args()
 
 
@@ -190,20 +193,6 @@ def main():
         path = f'''{os.getcwd()}/'''
         model.from_pretrained(path + args.input_model_file, device)
     print(model)
-    
-    # Get predictions for test dataset
-    logits = eval(args, model, device, test_loader, only_pred=True)
-    predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
-    
-    # Save to a JSON file
-    try:
-        path = os.getcwd()
-        os.mkdir(path + "/probabilities")
-    except:
-        print("probabilities folder already created")
-
-    with open(path + f"/probabilities/{args.dataset}_probabilities.json", "w") as json_file:
-        json.dump(predictions, json_file)
 
     #set up optimizer
     #different learning rate for different part of GNN

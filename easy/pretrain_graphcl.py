@@ -1,9 +1,11 @@
 import argparse
 
+import json
 from loader import MoleculeDataset_aug
 from torch_geometric.data import DataLoader
 from torch_geometric.nn.inits import uniform
 from torch_geometric.nn import global_mean_pool
+from loader import MoleculeDataset
 
 import torch
 import torch.nn as nn
@@ -118,9 +120,9 @@ def train(args, model, device, dataset, optimizer, epoch):
     return train_acc_accum/(step+1), train_loss_accum/(step+1)
 
 
-def eval(args, model, device, loader):
+def eval(args, model, device, loader, only_pred=False):
     model.eval()
-    #y_true = []
+    y_true = []
     y_scores = []
 
     for step, batch in enumerate(tqdm(loader, desc="Iteration")):
@@ -129,15 +131,31 @@ def eval(args, model, device, loader):
         with torch.no_grad():
             pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
 
-        #y_one_hot = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
+        y_one_hot = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
         #y_true.append(batch.y.view(pred.shape))
-        #y_true.append(y_one_hot)
+        y_true.append(y_one_hot)
         y_scores.append(pred)
-
-    #y_true = torch.cat(y_true, dim = 0).cpu().numpy()
+    
+    if only_pred:
+        return y_scores
+    
+    y_true = torch.cat(y_true, dim = 0).cpu().numpy()
     y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
 
-    return y_scores
+    roc_list = []
+    for i in range(y_true.shape[1]):
+        #AUC is only defined when there is at least one positive data.
+        if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == 0) > 0:
+            #is_valid = y_true[:,i]**2 > 0
+            #roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
+            is_valid = (y_true[:, i] == 0) | (y_true[:, i] == 1)
+            roc_list.append(roc_auc_score(y_true[is_valid, i], y_scores[is_valid, i]))
+    
+    if len(roc_list) < y_true.shape[1]:
+        print("Some target is missing!")
+        print("Missing ratio: %f" %(1 - float(len(roc_list))/y_true.shape[1]))
+
+    return sum(roc_list)/len(roc_list)
 
 
 def main():
@@ -214,6 +232,25 @@ def main():
     end = time.time()
     print(f"Time to train {args.dataset}: {end-start}")
     torch.save(gnn.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_final.pth")
+
+    # Get predictions for source test dataset
+    PATH = f'''{os.getcwd()}/datasets/'''.replace('easy', 'data_processing')
+    test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=1)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
+
+    logits = eval(args, model, device, test_loader, only_pred=True)
+    train_acc = eval(args, model, device, test_loader)
+    predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
+
+    # Save to a JSON file
+    try:
+        path = os.getcwd()
+        os.mkdir(path + "/probabilities")
+    except:
+        print("probabilities folder already created")
+
+    with open(path + f"/probabilities/{args.dataset}_probabilities.json", "w") as json_file:
+        json.dump(predictions, json_file)
 
     with open(f'outputs/{args.dataset}_pretrain_result.log', 'a+') as f:
         f.write('time: ' + str(end-start))
