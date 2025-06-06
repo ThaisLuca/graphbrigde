@@ -216,7 +216,6 @@ def main():
         print("====Evaluation")
         if args.eval_train:
             train_acc = eval(args, model, device, train_loader)
-            pretrained_acc = eval(args, model, device, test_loader)
         else:
             print("omit the training accuracy computation")
             train_acc = 0
@@ -241,9 +240,9 @@ def main():
     
     with open(f'outputs/{args.dataset}_sidetune_result.log', 'a+') as f:
         f.write(args.dataset + ' ' + str(args.runseed) + ' Train ' + str(max(np.array(train_acc)))) 
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Pre-Train ' + str(max(np.array(pretrained_acc))))
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Test ' + str(max(np.array(test_acc_list))))
-        f.write('time: ' + str(end-start))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' Val ' + str(max(np.array(val_acc))))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' Test ' + str(max(np.array(test_acc))))
+        f.write('Time: ' + str(end-start))
         f.write('\n')
 
 if __name__ == "__main__":
