@@ -109,10 +109,7 @@ def build_dataset(literals, constants_and_relations, relations, fold):
     attributes = list(constants_and_relations.keys())
     e_attributes = list(set(relations))
 
-    tgt_code = {"neg": -1, "pos": 1}
-
-    for pin in ["neg", "pos"]:
-        tgt = tgt_code[pin]
+    for tgt, pin in enumerate(["neg", "pos"]):
         for i,dt in enumerate(literals[pin]):
 
             relation = re.findall(r'([a-z\d_]+)\(', dt)[0]
