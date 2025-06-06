@@ -205,8 +205,6 @@ def main():
     print("data",dataset)
     print(dataset[0])
 
-    PATH = f'''{os.getcwd()}/datasets/'''.replace('data_processing', 'easy')
-
     #set up model
     gnn = GNN(args.num_layer, args.emb_dim, JK = args.JK, drop_ratio = args.dropout_ratio, gnn_type = args.gnn_type)
 
@@ -233,6 +231,7 @@ def main():
     
     end = time.time()
     print(f"Time to train {args.dataset}: {end-start}")
+    PATH = f'''{os.getcwd()}/'''
     torch.save(gnn.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_final.pth")
 
     # Get predictions for source test dataset
@@ -245,8 +244,8 @@ def main():
     predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
 
     # Save to a JSON file
+    path = os.getcwd()
     try:
-        path = os.getcwd()
         os.mkdir(path + "/probabilities")
     except:
         print("probabilities folder already created")
