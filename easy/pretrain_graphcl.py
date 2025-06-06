@@ -205,6 +205,8 @@ def main():
     print("data",dataset)
     print(dataset[0])
 
+    PATH = f'''{os.getcwd()}/datasets/'''.replace('data_processing', 'easy')
+
     #set up model
     gnn = GNN(args.num_layer, args.emb_dim, JK = args.JK, drop_ratio = args.dropout_ratio, gnn_type = args.gnn_type)
 
