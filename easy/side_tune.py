@@ -238,8 +238,8 @@ def main():
     except:
         pass
     
-    with open(f'outputs/{args.dataset}_sidetune_result.log', 'a+') as f:
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Train ' + str(train_acc)) 
+    with open(f'outputs/{args.source}_{args.dataset}_sidetune_result.log', 'a+') as f:
+        f.write(args.dataset + ' ' + str(args.runseed) + ' Train ' + str(train_acc))
         f.write(args.dataset + ' ' + str(args.runseed) + ' Val ' + str(val_acc))
         f.write(args.dataset + ' ' + str(args.runseed) + ' Test ' + str(test_acc))
         f.write('Time: ' + str(end-start))
