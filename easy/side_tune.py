@@ -239,9 +239,9 @@ def main():
         pass
     
     with open(f'outputs/{args.dataset}_sidetune_result.log', 'a+') as f:
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Train ' + str(max(np.array(train_acc)))) 
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Val ' + str(max(np.array(val_acc))))
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Test ' + str(max(np.array(test_acc))))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' Train ' + str(train_acc)) 
+        f.write(args.dataset + ' ' + str(args.runseed) + ' Val ' + str(val_acc))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' Test ' + str(test_acc))
         f.write('Time: ' + str(end-start))
         f.write('\n')
 
