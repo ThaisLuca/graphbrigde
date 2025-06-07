@@ -140,43 +140,22 @@ class GNN_graphpred_no_transfer(GNN_graphpred):
     def __init__(self, num_layer, emb_dim, num_tasks, num_side_layer=3, down_dim=16, JK = "last", drop_ratio = 0, graph_pooling = "mean"):
         super().__init__(num_layer, emb_dim, num_tasks, JK, drop_ratio, graph_pooling)
 
+        #self.projection_head = nn.Sequential(nn.Linear(300, 300), nn.ReLU(inplace=True), nn.Linear(300, 300))
     
     def forward(self, *argv):
-        if len(argv) == 3:
-            x, edge_index, edge_attr = argv[0], argv[1], argv[2]
+        if len(argv) == 4:
+            x, edge_index, edge_attr, batch = argv[0], argv[1], argv[2], argv[3]
         elif len(argv) == 1:
             data = argv[0]
-            x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+            x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
         else:
             raise ValueError("unmatched number of arguments.")
 
-        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])
+        node_representation = self.gnn(x, edge_index, edge_attr)
+        #side_representation = self.siders(x, edge_index, edge_attr)
+        #node_representation = (1-self.alpha)*node_representation+self.alpha*side_representation
 
-        h_list = [x]
-        for layer in range(self.num_layer):
-            h = self.gnns[layer](h_list[layer], edge_index, edge_attr)
-            h = self.batch_norms[layer](h)
-            #h = F.dropout(F.relu(h), self.drop_ratio, training = self.training)
-            if layer == self.num_layer - 1:
-                #remove relu for the last layer
-                h = F.dropout(h, self.drop_ratio, training = self.training)
-            else:
-                h = F.dropout(F.relu(h), self.drop_ratio, training = self.training)
-            h_list.append(h)
-
-        ### Different implementations of Jk-concat
-        if self.JK == "concat":
-            node_representation = torch.cat(h_list, dim = 1)
-        elif self.JK == "last":
-            node_representation = h_list[-1]
-        elif self.JK == "max":
-            h_list = [h.unsqueeze_(0) for h in h_list]
-            node_representation = torch.max(torch.cat(h_list, dim = 0), dim = 0)[0]
-        elif self.JK == "sum":
-            h_list = [h.unsqueeze_(0) for h in h_list]
-            node_representation = torch.sum(torch.cat(h_list, dim = 0), dim = 0)[0]
-
-        return node_representation
+        return self.graph_pred_linear(self.pool(node_representation, batch))
 
 
 if __name__ == "__main__":
