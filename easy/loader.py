@@ -918,6 +918,8 @@ class MoleculeDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
+        if not self.fold:
+            return f'geometric_data_processed_full.pt'
         return f'geometric_data_processed_{self.fold}.pt'
 
     def download(self):

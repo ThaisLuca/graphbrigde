@@ -180,7 +180,7 @@ def main():
     PATH = f'''{os.getcwd()}/datasets/'''.replace('easy', 'data_processing')
     train_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=1)
     valid_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=2)
-    test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=3)
+    test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=None)
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
