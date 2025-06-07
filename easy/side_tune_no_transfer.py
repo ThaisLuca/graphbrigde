@@ -24,34 +24,6 @@ import pandas as pd
 
 criterion = nn.BCEWithLogitsLoss(reduction = "none")
 
-class graphcl(nn.Module):
-
-    def __init__(self, gnn):
-        super(graphcl, self).__init__()
-        self.gnn = gnn
-        self.pool = global_mean_pool
-        self.projection_head = nn.Sequential(nn.Linear(300, 300), nn.ReLU(inplace=True), nn.Linear(300, 300))
-
-    def forward_cl(self, x, edge_index, edge_attr, batch):
-        x = self.gnn(x, edge_index, edge_attr)
-        x = self.pool(x, batch)
-        x = self.projection_head(x)
-        return x
-
-    def loss_cl(self, x1, x2):
-        T = 0.1
-        batch_size, _ = x1.size()
-        x1_abs = x1.norm(dim=1)
-        x2_abs = x2.norm(dim=1)
-
-        sim_matrix = torch.einsum('ik,jk->ij', x1, x2) / torch.einsum('i,j->ij', x1_abs, x2_abs)
-        sim_matrix = torch.exp(sim_matrix / T)
-        pos_sim = sim_matrix[range(batch_size), range(batch_size)]
-        loss = pos_sim / (sim_matrix.sum(dim=1) - pos_sim)
-        loss = - torch.log(loss).mean()
-        return loss
-
-
 def train(args, model, device, loader, optimizer):
     model.train()
 
@@ -157,7 +129,6 @@ def main():
     torch.manual_seed(args.runseed)
     np.random.seed(args.runseed)
     device = torch.device("cuda:" + str(args.device)) if torch.cuda.is_available() else torch.device("cpu")
-    device = torch.device("cpu")
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.runseed)
 
@@ -216,8 +187,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
 
     #set up model
-    gnn = GNN(args.num_layer, args.emb_dim, JK = args.JK, drop_ratio = args.dropout_ratio, gnn_type = args.gnn_type)
-    model = graphcl(gnn)
+    model = GNN_graphpred_no_transfer(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling)
     model.to(device)
     print(model)
 
