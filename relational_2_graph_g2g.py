@@ -24,6 +24,11 @@ unary_relations = {'imdb': {'female': '', 'actor': '', 'director': ''},
 
 relations, constants_and_relations = [],{}
 
+#verbose=True
+source_balanced = False
+balanced = False
+SEED = 441773
+
 def load_file(filename):
     with open(filename, 'r') as file:
         return file.read()
@@ -235,53 +240,48 @@ class MoleculeDataset_aug(InMemoryDataset):
                                   #'No download allowed')
 
     def process(self):
-        
-        # Load source dataset
-        src_total_data = datasets.load(source, bk[source], seed=441773)
-        src_data = datasets.load(source, bk[source], target=predicate, balanced=False, seed=441773)
+            
+        src_total_data = datasets.load(source, bk[source], seed=SEED)
+        src_data = datasets.load(source, bk[source], target=predicate, balanced=source_balanced, seed=SEED)
 
         # Group folds to get relations and constants
         src_facts = datasets.group_folds(src_data[0])
         src_facts = [rel for rel in src_facts if 'recursion' not in rel]
         constants_and_relations, relations = map_constants_and_relations(src_facts)
 
-        # Split folds into facts, pos and neg
-        src_facts = src_data[0]
-        src_pos   = src_data[1]
-        src_neg   = src_data[2]
+        if source in ['imdb', 'uwcse']:
+            constants_and_relations.update(unary_relations[source])
+
 
         if source in ['nell_sports', 'nell_finances', 'yago2s']:
             n_folds = 3
         else:
-            n_folds = len(src_facts)
-
-        if source in ['imdb', 'uwcse']:
-            constants_and_relations.update(unary_relations[source])
-
+            n_folds = len(src_data[0])
+        
         graph_list = []
         for i in range(n_folds):
             print('\n Starting fold {} of {} folds \n'.format(i+1, n_folds))
 
-            if source in ['nell_sports', 'nell_finances', 'yago2s']:
-                #[src_train_facts, src_test_facts] =  [src_data[0][0], src_data[0][0]]
-                to_folds_pos = datasets.split_into_folds(src_data[1][0], n_folds=n_folds, seed=441773)
-                to_folds_neg = datasets.split_into_folds(src_data[2][0], n_folds=n_folds, seed=441773)
+
+            # Group and shuffle
+            if source not in ['nell_sports', 'nell_finances', 'yago2s']:
+                [src_train_facts, src_test_facts] =  datasets.get_kfold_small(i, src_data[0])
+                [src_train_pos, src_test_pos] =  datasets.get_kfold_small(i, src_data[1])
+                [src_train_neg, src_test_neg] =  datasets.get_kfold_small(i, src_data[2])
+            else:
+                [src_train_facts, src_test_facts] =  [src_data[0][0], src_data[0][0]]
+                to_folds_pos = datasets.split_into_folds(src_data[1][0], n_folds=n_folds, seed=SEED)
+                to_folds_neg = datasets.split_into_folds(src_data[2][0], n_folds=n_folds, seed=SEED)
                 [src_train_pos, src_test_pos] =  datasets.get_kfold_small(i, to_folds_pos)
                 [src_train_neg, src_test_neg] =  datasets.get_kfold_small(i, to_folds_neg)
-
-                src_pos_fold = src_train_pos + src_test_pos
-                src_neg_fold = src_train_neg + src_test_neg
-
-            else:
-                #src_facts_fold = [rel for rel in src_facts[i] if 'recursion' not in rel] #filter relations that use recursion
-                src_pos_fold = src_pos[i]
-                src_neg_fold = src_neg[i]
-
+            
+            src_pos = src_train_pos + src_test_pos
+            src_neg = src_train_neg + src_test_neg
             #constants_and_relations, relations = map_constants_and_relations(src_facts_fold)
 
             #print(constants_and_relations)
         
-            curr_graph_list = build_dataset({"pos": src_pos_fold, "neg": src_neg_fold}, constants_and_relations, relations, i)
+            curr_graph_list = build_dataset({"pos": src_pos, "neg": src_neg}, constants_and_relations, relations, i)
 
             for idx,item in enumerate(curr_graph_list):
                 graph_list.append(item)
@@ -290,9 +290,10 @@ class MoleculeDataset_aug(InMemoryDataset):
             data, slices = self.collate(curr_graph_list)
             torch.save((data, slices), f'''datasets/{source}/processed/geometric_data_processed_{i+1}.pt''')
         
-        data, slices = self.collate(graph_list)
-        torch.save((data, slices), f'''datasets/{source}/processed/geometric_data_processed_full.pt''')
+        #data, slices = self.collate(graph_list)
+        #torch.save((data, slices), f'''datasets/{source}/processed/geometric_data_processed_full.pt''')
         #torch.save(graph_list, f'''dataset/{source}/{source}_data_full.pt''')
+        #print('TOTAL', len(graph_list))
 
 
 
