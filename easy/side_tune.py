@@ -65,11 +65,11 @@ def eval(args, model, device, loader, only_pred=False):
         y_true.append(y_one_hot)
         y_scores.append(pred)
     
-    if only_pred:
-        return y_scores
-
     y_true = torch.cat(y_true, dim = 0).cpu().numpy()
     y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
+    
+    if only_pred:
+        return y_scores
 
     roc_list = []
     for i in range(y_true.shape[1]):
@@ -233,6 +233,20 @@ def main():
     end = time.time()
     # for i in model.named_parameters():
     #     print(i)
+    logits = eval(args, model, device, test_loader, only_pred=True)
+    predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
+
+    # Save to a JSON file
+    path = os.getcwd()
+    try:
+        os.mkdir(path + "/probabilities")
+    except:
+        print("probabilities folder already created")
+
+    with open(path + f"/probabilities/{args.dataset}_probabilities_finetune.json", "w") as json_file:
+        json.dump(predictions, json_file)
+
+
     try:
         os.mkdir('outputs')
     except:

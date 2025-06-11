@@ -232,7 +232,7 @@ def main():
     logits = eval(args, model, device, test_loader, only_pred=True)
     predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
 
-     # Save to a JSON file
+    # Save to a JSON file
     path = os.getcwd()
     try:
         os.mkdir(path + "/probabilities")
