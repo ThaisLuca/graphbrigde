@@ -5,6 +5,7 @@ import os
 import json
 from loader import MoleculeDataset
 from torch_geometric.data import DataLoader
+from sklearn.metrics import roc_auc_score,auc,precision_recall_curve
 
 import torch
 import torch.nn as nn
@@ -64,14 +65,15 @@ def eval(args, model, device, loader, only_pred=False):
         #y_true.append(batch.y.view(pred.shape))
         y_true.append(y_one_hot)
         y_scores.append(pred)
+
+    if only_pred:
+        return y_scores
     
     y_true = torch.cat(y_true, dim = 0).cpu().numpy()
     y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
     
-    if only_pred:
-        return y_scores
 
-    roc_list = []
+    roc_list, pr_list = [], []
     for i in range(y_true.shape[1]):
         #AUC is only defined when there is at least one positive data.
         if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == 0) > 0:
@@ -79,12 +81,14 @@ def eval(args, model, device, loader, only_pred=False):
             #roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
             is_valid = (y_true[:, i] == 0) | (y_true[:, i] == 1)
             roc_list.append(roc_auc_score(y_true[is_valid, i], y_scores[is_valid, i]))
+            precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
+            pr_list.append(auc(recall, precision))
     
     if len(roc_list) < y_true.shape[1]:
         print("Some target is missing!")
         print("Missing ratio: %f" %(1 - float(len(roc_list))/y_true.shape[1]))
 
-    return sum(roc_list)/len(roc_list)
+    return sum(roc_list)/len(roc_list), sum(pr_list)/len(pr_list)
 
 
 def main():
@@ -206,6 +210,10 @@ def main():
     val_acc_list = []
     test_acc_list = []
 
+    train_pr_list = []
+    val_pr_list = []
+    test_pr_list = []
+
     print('side tuning ...')
     start = time.time()
     for epoch in range(1, args.epochs+1):
@@ -215,18 +223,23 @@ def main():
 
         print("====Evaluation")
         if args.eval_train:
-            train_acc = eval(args, model, device, train_loader)
+            train_acc, train_pr = eval(args, model, device, train_loader)
         else:
             print("omit the training accuracy computation")
             train_acc = 0
-        val_acc = eval(args, model, device, val_loader)
-        test_acc = eval(args, model, device, test_loader)
+        val_acc, val_pr = eval(args, model, device, val_loader)
+        test_acc, test_pr = eval(args, model, device, test_loader)
 
-        print("train: %f val: %f test: %f" %(train_acc, val_acc, test_acc))
+        print("ROC: train: %f val: %f test: %f" %(train_acc, val_acc, test_acc))
+        print("PR: train: %f val: %f test: %f" %(train_pr, val_pr, test_pr))
 
         val_acc_list.append(val_acc)
         test_acc_list.append(test_acc)
         train_acc_list.append(train_acc)
+
+        val_pr_list.append(val_pr)
+        test_pr_list.append(test_pr)
+        train_pr_list.append(train_pr)
 
         print("")
 
@@ -246,6 +259,9 @@ def main():
     with open(path + f"/probabilities/{args.dataset}_probabilities_finetune.json", "w") as json_file:
         json.dump(predictions, json_file)
 
+    torch.save(model.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_train.pth")
+
+
 
     try:
         os.mkdir('outputs')
@@ -253,9 +269,14 @@ def main():
         pass
     
     with open(f'outputs/{args.source}_{args.dataset}_sidetune_result.log', 'a+') as f:
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Train ' + str(train_acc))
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Val ' + str(val_acc))
-        f.write(args.dataset + ' ' + str(args.runseed) + ' Test ' + str(test_acc))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' ROC Train ' + str(train_acc))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' ROC Val ' + str(val_acc))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' ROC Test ' + str(test_acc))
+        f.write('\n')
+        f.write(args.dataset + ' ' + str(args.runseed) + ' PR Train ' + str(train_pr))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' PR Val ' + str(val_pr))
+        f.write(args.dataset + ' ' + str(args.runseed) + ' PR Test ' + str(test_pr))
+        f.write('\n')
         f.write('Time: ' + str(end-start))
         f.write('\n')
 
