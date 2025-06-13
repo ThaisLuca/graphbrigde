@@ -235,25 +235,26 @@ def main():
     torch.save(gnn.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_final.pth")
 
     # Get predictions for source test dataset
-    PATH = f'''{os.getcwd()}/datasets/'''.replace('easy', 'data_processing')
-    test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=1)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
+    #PATH = f'''{os.getcwd()}/datasets/'''.replace('easy', 'data_processing')
+    #test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=3)
+    #test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
 
-    logits = eval(args, model, device, test_loader, only_pred=True)
-    train_acc = eval(args, model, device, test_loader)
-    predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
+    #logits = eval(args, model, device, test_loader, only_pred=True)
+    #train_acc = eval(args, model, device, test_loader)
+    #predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
 
     # Save to a JSON file
-    path = os.getcwd()
-    try:
-        os.mkdir(path + "/probabilities")
-    except:
-        print("probabilities folder already created")
+    #path = os.getcwd()
+    #try:
+    #    os.mkdir(path + "/probabilities")
+    #except:
+    #    print("probabilities folder already created")
 
-    with open(path + f"/probabilities/{args.dataset}_probabilities.json", "w") as json_file:
-        json.dump(predictions, json_file)
+    #with open(path + f"/probabilities/{args.dataset}_probabilities.json", "w") as json_file:
+    #    json.dump(predictions, json_file)
 
     with open(f'outputs/{args.dataset}_pretrain_result.log', 'a+') as f:
+        f.write('train_acc: ' + str(train_acc))
         f.write('time: ' + str(end-start))
         f.write('\n')
     
