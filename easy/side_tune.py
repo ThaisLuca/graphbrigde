@@ -81,7 +81,7 @@ def eval(args, model, device, loader, only_pred=False):
             #roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
             is_valid = (y_true[:, i] == 0) | (y_true[:, i] == 1)
             roc_list.append(roc_auc_score(y_true[is_valid, i], y_scores[is_valid, i]))
-            precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
+            precision, recall, thresholds = precision_recall_curve(y_true[is_valid, i], y_scores[is_valid, i])
             pr_list.append(auc(recall, precision))
     
     if len(roc_list) < y_true.shape[1]:
