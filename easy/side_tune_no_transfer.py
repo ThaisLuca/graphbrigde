@@ -126,6 +126,7 @@ def main():
     parser.add_argument('--split', type = str, default="scaffold", help = "random or scaffold or random_scaffold")
     parser.add_argument('--eval_train', type=int, default = 1, help='evaluating training or not')
     parser.add_argument('--num_workers', type=int, default = 4, help='number of workers for dataset loading')
+    parser.add_argument('--source', type=str, default = 'cora', help='root directory of dataset. For now, only classification.')
     args = parser.parse_args()
 
 
@@ -181,9 +182,9 @@ def main():
     #print(train_dataset[0])
 
     PATH = f'''{os.getcwd()}/datasets/'''.replace('easy', 'data_processing')
-    train_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=1)
-    valid_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=2)
-    test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=None)
+    train_dataset = MoleculeDataset(PATH + args.source, dataset=args.dataset, fold=3)
+    valid_dataset = MoleculeDataset(PATH + args.source, dataset=args.dataset, fold=2)
+    test_dataset = MoleculeDataset(PATH + args.source, dataset=args.dataset, fold=1)
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
