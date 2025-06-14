@@ -210,6 +210,11 @@ def main():
     val_pr_list = []
     test_pr_list = []
 
+    train_acc = 0
+    train_pr = 0
+    val_acc, val_pr = 0,0
+    test_acc, test_pr = 0,0
+
     print('side tuning ...')
     start = time.time()
     for epoch in range(1, args.epochs+1):
@@ -244,6 +249,9 @@ def main():
     
     logits = eval(args, model, device, test_loader, only_pred=True)
     predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
+
+    val_acc, val_pr = eval(args, model, device, val_loader)
+    test_acc, test_pr = eval(args, model, device, test_loader)
 
     # Save to a JSON file
     path = os.getcwd()
