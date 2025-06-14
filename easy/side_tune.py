@@ -259,6 +259,7 @@ def main():
     with open(path + f"/probabilities/{args.dataset}_probabilities_finetune.json", "w") as json_file:
         json.dump(predictions, json_file)
 
+    PATH = f'''{os.getcwd()}/'''
     torch.save(model.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_train.pth")
 
 
