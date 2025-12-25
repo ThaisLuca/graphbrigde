@@ -76,8 +76,8 @@ def convert(path, dataset, check_sanity=False):
 
             # All datasets have two features
             # Every feature becomes a fact
-            #   [[5, 0], -> Feature1(Molecule1, Node1, 5), Feature2(Molecule1, Node1, 0)
-            #    [6,0]]  -> Feature1(Molecule1, Node2, 6), Feature2(Molecule1, Node2, 0)
+            #   [[5, 0], -> feature1(molecule1, node1, 5), feature2(molecule1, node1, 0)
+            #    [6,0]]  -> feature1(molecule1, node2, 6), feature2(molecule1, node2, 0)
             facts.append(
                 f"atomicNumber({molecule_name},{node_type},{atomic_number})."
             )
@@ -86,32 +86,30 @@ def convert(path, dataset, check_sanity=False):
                 f"chiralityNumber({molecule_name},{node_type},{chirality_number})."
             )
 
-        print("\nList of triples (source, destination):")
-        for src, dst in data.edge_index.t().tolist():
-            print(f"Edge(n{src}, n{dst})")
 
-            #print(f"({src[i].item()}, {dst[i].item()})")
-            #print(data.edge_attr)        # Shows the tensor of edge features
-            #print(data.edge_attr.shape)  # (num_edges, num_edge_features)
+        for idx, (src, dst) in enumerate(data.edge_index.t().tolist()):
+
+            src_atomic_number = data.x[src].tolist()[0]
+            dst_atomic_number = data.x[dst].tolist()[0]
+
+            src_node_type, dst_node_type = node_type_mapping[src_atomic_number], node_type_mapping[dst_atomic_number]
+
+            # Get edge attribute
+            bondtype, stereo = data.edge_attr[idx].tolist()
 
             # Every edge becomes a fact too
-            # bond(compound, atom1, atom2, bondtype)
-            #facts.append(
+            #   [[5, 0]] -> bond(molecule1, node1, node2, 5), stereo(molecule1, node1, node2, 0)
+            facts.append(
+                f"bond({molecule_name}, {src_node_type}, {dst_node_type}, {bondtype})."
+            )
 
-            #)
+            facts.append(
+                f"stereo({molecule_name}, {src_node_type}, {dst_node_type}, {stereo})."
+            )
     
-    #write_to_file("facts.txt", set(facts))
-    #write_to_file("pos.txt", pos)
-    #write_to_file("neg.txt", neg)
-            
-    # Convert nodes
-'''
-
-
-# For edges:
-#      Connected(Node(i), Node(j))
-
-'''
+    write_to_file("facts.txt", set(facts))
+    write_to_file("pos.txt", set(pos))
+    write_to_file("neg.txt", set(neg))
 
 
 if __name__ == "__main__":
@@ -119,10 +117,3 @@ if __name__ == "__main__":
      for dataset in datasets_to_go_relational:
         PATH = f"dataset/{dataset}/processed/geometric_data_processed_{FOLD}.pt"
         G = convert(path=PATH, dataset=dataset, check_sanity=False)
-        
-        
-
-
-
-
-
