@@ -106,7 +106,9 @@ def convert(path, dataset, check_sanity=False):
             facts.append(
                 f"stereo({molecule_name},{src_node_type},{dst_node_type},{stereo})."
             )
-    
+
+    facts,pos,neg = list(set(facts)), list(set(pos)), list(set(neg))
+    facts.sort()
     return facts,pos,neg
 
 
@@ -116,6 +118,6 @@ if __name__ == "__main__":
         PATH = f"dataset/{dataset}/processed/geometric_data_processed_{FOLD}.pt"
         facts,pos,neg = convert(path=PATH, dataset=dataset, check_sanity=False)
 
-        write_to_file("bk.pl", set(facts))
-        write_to_file("pos.pl", set(pos))
-        write_to_file("neg.pl", set(neg))
+        write_to_file("bk.pl", facts)
+        write_to_file("pos.pl", pos)
+        write_to_file("neg.pl", neg)
