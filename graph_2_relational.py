@@ -100,20 +100,22 @@ def convert(path, dataset, check_sanity=False):
             # Every edge becomes a fact too
             #   [[5, 0]] -> bond(molecule1, node1, node2, 5), stereo(molecule1, node1, node2, 0)
             facts.append(
-                f"bond({molecule_name}, {src_node_type}, {dst_node_type}, {bondtype})."
+                f"bond({molecule_name},{src_node_type},{dst_node_type},{bondtype})."
             )
 
             facts.append(
-                f"stereo({molecule_name}, {src_node_type}, {dst_node_type}, {stereo})."
+                f"stereo({molecule_name},{src_node_type},{dst_node_type},{stereo})."
             )
     
-    write_to_file("facts.txt", set(facts))
-    write_to_file("pos.txt", set(pos))
-    write_to_file("neg.txt", set(neg))
+    return facts,pos,neg
 
 
 if __name__ == "__main__":
      
      for dataset in datasets_to_go_relational:
         PATH = f"dataset/{dataset}/processed/geometric_data_processed_{FOLD}.pt"
-        G = convert(path=PATH, dataset=dataset, check_sanity=False)
+        facts,pos,neg = convert(path=PATH, dataset=dataset, check_sanity=False)
+
+        write_to_file("facts.pl", set(facts))
+        write_to_file("pos.pl", set(pos))
+        write_to_file("neg.pl", set(neg))
