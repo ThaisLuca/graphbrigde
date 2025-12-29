@@ -116,6 +116,6 @@ if __name__ == "__main__":
         PATH = f"dataset/{dataset}/processed/geometric_data_processed_{FOLD}.pt"
         facts,pos,neg = convert(path=PATH, dataset=dataset, check_sanity=False)
 
-        write_to_file("facts.pl", set(facts))
+        write_to_file("bk.pl", set(facts))
         write_to_file("pos.pl", set(pos))
         write_to_file("neg.pl", set(neg))
