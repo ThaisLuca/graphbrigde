@@ -1,11 +1,7 @@
 import argparse
 
-import time
-import os
-import json
 from loader import MoleculeDataset
 from torch_geometric.data import DataLoader
-from sklearn.metrics import roc_auc_score,auc,precision_recall_curve
 
 import torch
 import torch.nn as nn
@@ -30,16 +26,12 @@ def train(args, model, device, loader, optimizer):
         batch = batch.to(device)
         # print('batch')
         pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
-        y = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
-        #y = batch.y.view(pred.shape).to(torch.float64)
-        #y = batch.y.to(torch.float64)
+        y = batch.y.view(pred.shape).to(torch.float64)
 
         #Whether y is non-null or not.
-        #is_valid = y**2 > 0
-        is_valid = (y == 0) | (y == 1)
+        is_valid = y**2 > 0
         #Loss matrix
-        #loss_mat = criterion(pred.double(), (y+1)/2)
-        loss_mat = criterion(pred.double(), y)
+        loss_mat = criterion(pred.double(), (y+1)/2)
         #loss matrix after removing null target
         loss_mat = torch.where(is_valid, loss_mat, torch.zeros(loss_mat.shape).to(loss_mat.device).to(loss_mat.dtype))
             
@@ -50,7 +42,7 @@ def train(args, model, device, loader, optimizer):
         optimizer.step()
 
 
-def eval(args, model, device, loader, only_pred=False):
+def eval(args, model, device, loader):
     model.eval()
     y_true = []
     y_scores = []
@@ -61,40 +53,30 @@ def eval(args, model, device, loader, only_pred=False):
         with torch.no_grad():
             pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
 
-        y_one_hot = torch.nn.functional.one_hot(batch.y, num_classes=2).to(torch.float32)
-        #y_true.append(batch.y.view(pred.shape))
-        y_true.append(y_one_hot)
+        y_true.append(batch.y.view(pred.shape))
         y_scores.append(pred)
 
-    if only_pred:
-        return y_scores
-    
     y_true = torch.cat(y_true, dim = 0).cpu().numpy()
     y_scores = torch.cat(y_scores, dim = 0).cpu().numpy()
-    
 
-    roc_list, pr_list = [], []
+    roc_list = []
     for i in range(y_true.shape[1]):
         #AUC is only defined when there is at least one positive data.
-        if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == 0) > 0:
-            #is_valid = y_true[:,i]**2 > 0
-            #roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
-            is_valid = (y_true[:, i] == 0) | (y_true[:, i] == 1)
-            roc_list.append(roc_auc_score(y_true[is_valid, i], y_scores[is_valid, i]))
-            precision, recall, thresholds = precision_recall_curve(y_true[is_valid, i], y_scores[is_valid, i])
-            pr_list.append(auc(recall, precision))
-    
+        if np.sum(y_true[:,i] == 1) > 0 and np.sum(y_true[:,i] == -1) > 0:
+            is_valid = y_true[:,i]**2 > 0
+            roc_list.append(roc_auc_score((y_true[is_valid,i] + 1)/2, y_scores[is_valid,i]))
+
     if len(roc_list) < y_true.shape[1]:
         print("Some target is missing!")
         print("Missing ratio: %f" %(1 - float(len(roc_list))/y_true.shape[1]))
 
-    return sum(roc_list)/len(roc_list), sum(pr_list)/len(pr_list)
+    return sum(roc_list)/len(roc_list)
 
 
 def main():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of graph neural networks')
-    parser.add_argument('--device', type=int, default=1,
+    parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training (default: 32)')
@@ -117,15 +99,14 @@ def main():
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--gnn_type', type=str, default="gin")
-    parser.add_argument('--dataset', type=str, default = 'yeast', help='root directory of dataset. For now, only classification.')
-    parser.add_argument('--input_model_file', type=str, default = 'models_graphcl/graphcl_cora_final.pth', help='filename to read the model (if there is any)')
+    parser.add_argument('--dataset', type=str, default = 'zinc_standard_agent', help='root directory of dataset. For now, only classification.')
+    parser.add_argument('--input_model_file', type=str, default = '', help='filename to read the model (if there is any)')
     parser.add_argument('--filename', type=str, default = '', help='output filename')
     parser.add_argument('--seed', type=int, default=42, help = "Seed for splitting the dataset.")
     parser.add_argument('--runseed', type=int, default=0, help = "Seed for minibatch selection, random initialization.")
     parser.add_argument('--split', type = str, default="scaffold", help = "random or scaffold or random_scaffold")
     parser.add_argument('--eval_train', type=int, default = 1, help='evaluating training or not')
     parser.add_argument('--num_workers', type=int, default = 4, help='number of workers for dataset loading')
-    parser.add_argument('--source', type=str, default = 'cora', help='root directory of dataset. For now, only classification.')
     args = parser.parse_args()
 
 
@@ -154,37 +135,33 @@ def main():
         num_tasks = 27
     elif args.dataset == "clintox":
         num_tasks = 2
+    elif args.dataset == "zinc_standard_agent":
+        num_tasks = 1
     else:
-        num_tasks = 2
-        #raise ValueError("Invalid dataset name.")
+        raise ValueError("Invalid dataset name.")
 
     #set up dataset
-    #dataset = MoleculeDataset("dataset/" + args.dataset, dataset=args.dataset)
+    dataset = MoleculeDataset("dataset/" + args.dataset, dataset=args.dataset)
 
-    #print(dataset)
+    print(dataset)
 
  
-    #if args.split == "scaffold":
-    #    print("scaffold")
-    #    smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
-    #    train_dataset, valid_dataset, test_dataset = scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1)
-    #    print("scaffold")
-    #elif args.split == "random":
-    #    train_dataset, valid_dataset, test_dataset = random_split(dataset, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
-    #    print("random")
-    #elif args.split == "random_scaffold":
-    #    smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
-    #    train_dataset, valid_dataset, test_dataset = random_scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
-    #    print("random scaffold")
-    #else:
-    #    raise ValueError("Invalid split option.")
+    if args.split == "scaffold":
+        print("scaffold")
+        smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
+        train_dataset, valid_dataset, test_dataset = scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1)
+        print("scaffold")
+    elif args.split == "random":
+        train_dataset, valid_dataset, test_dataset = random_split(dataset, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
+        print("random")
+    elif args.split == "random_scaffold":
+        smiles_list = pd.read_csv('dataset/' + args.dataset + '/processed/smiles.csv', header=None)[0].tolist()
+        train_dataset, valid_dataset, test_dataset = random_scaffold_split(dataset, smiles_list, null_value=0, frac_train=0.8,frac_valid=0.1, frac_test=0.1, seed = args.seed)
+        print("random scaffold")
+    else:
+        raise ValueError("Invalid split option.")
 
-    #print(train_dataset[0])
-
-    PATH = f'''{os.getcwd()}/datasets/'''.replace('easy', 'data_processing')
-    train_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=1)
-    valid_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=2)
-    test_dataset = MoleculeDataset(PATH + args.dataset, dataset=args.dataset, fold=3)
+    print(train_dataset[0])
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     val_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers = args.num_workers)
@@ -194,9 +171,9 @@ def main():
     model = GNN_graphpred_side(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling)
     model.to(device)
     if not args.input_model_file == "":
-        path = f'''{os.getcwd()}/'''
-        model.from_pretrained(path + args.input_model_file, device)
+        model.from_pretrained(args.input_model_file, device)
     print(model)
+    
 
     #set up optimizer
     #different learning rate for different part of GNN
@@ -210,12 +187,7 @@ def main():
     val_acc_list = []
     test_acc_list = []
 
-    train_pr_list = []
-    val_pr_list = []
-    test_pr_list = []
-
     print('side tuning ...')
-    start = time.time()
     for epoch in range(1, args.epochs+1):
         print("====epoch " + str(epoch))
         
@@ -223,62 +195,24 @@ def main():
 
         print("====Evaluation")
         if args.eval_train:
-            train_acc, train_pr = eval(args, model, device, train_loader)
+            train_acc = eval(args, model, device, train_loader)
         else:
             print("omit the training accuracy computation")
             train_acc = 0
-        val_acc, val_pr = eval(args, model, device, val_loader)
-        test_acc, test_pr = eval(args, model, device, test_loader)
+        val_acc = eval(args, model, device, val_loader)
+        test_acc = eval(args, model, device, test_loader)
 
-        print("ROC: train: %f val: %f test: %f" %(train_acc, val_acc, test_acc))
-        print("PR: train: %f val: %f test: %f" %(train_pr, val_pr, test_pr))
+        print("train: %f val: %f test: %f" %(train_acc, val_acc, test_acc))
 
         val_acc_list.append(val_acc)
         test_acc_list.append(test_acc)
         train_acc_list.append(train_acc)
 
-        val_pr_list.append(val_pr)
-        test_pr_list.append(test_pr)
-        train_pr_list.append(train_pr)
-
         print("")
-
-    end = time.time()
     # for i in model.named_parameters():
     #     print(i)
-    logits = eval(args, model, device, test_loader, only_pred=True)
-    predictions = [torch.sigmoid(tensor).cpu().numpy().tolist() for tensor in logits]  # Bring me some probabilities!
-
-    # Save to a JSON file
-    path = os.getcwd()
-    try:
-        os.mkdir(path + "/probabilities")
-    except:
-        print("probabilities folder already created")
-
-    with open(path + f"/probabilities/{args.dataset}_probabilities_finetune.json", "w") as json_file:
-        json.dump(predictions, json_file)
-
-    PATH = f'''{os.getcwd()}/'''
-    torch.save(model.state_dict(), PATH + "models_graphcl/graphcl_" + args.dataset + "_train.pth")
-
-
-
-    try:
-        os.mkdir('outputs')
-    except:
-        pass
-    
-    with open(f'outputs/{args.source}_{args.dataset}_sidetune_result.log', 'a+') as f:
-        f.write(args.dataset + ' ' + str(args.runseed) + ' ROC Train ' + str(train_acc))
-        f.write(args.dataset + ' ' + str(args.runseed) + ' ROC Val ' + str(val_acc))
-        f.write(args.dataset + ' ' + str(args.runseed) + ' ROC Test ' + str(test_acc))
-        f.write('\n')
-        f.write(args.dataset + ' ' + str(args.runseed) + ' PR Train ' + str(train_pr))
-        f.write(args.dataset + ' ' + str(args.runseed) + ' PR Val ' + str(val_pr))
-        f.write(args.dataset + ' ' + str(args.runseed) + ' PR Test ' + str(test_pr))
-        f.write('\n')
-        f.write('Time: ' + str(end-start))
+    with open('outputs/sidetune_result.log', 'a+') as f:
+        f.write(args.dataset + ' ' + str(args.runseed) + ' ' + str(max(np.array(test_acc_list))))
         f.write('\n')
 
 if __name__ == "__main__":
