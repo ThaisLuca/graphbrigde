@@ -40,7 +40,7 @@ def convert(path, dataset, check_sanity=False):
     target_name = datasets_to_go_relational[dataset]["target"]
 
     data_to_json = [
-        [
+        [   # positives + facts
             {
                 target_name: [],
                 "atomicNumber": [],
@@ -49,7 +49,7 @@ def convert(path, dataset, check_sanity=False):
                 "stereo": []
             }
         ],
-        [
+        [   # negatives
             {
                 target_name: [],
                 "atomicNumber": [],
@@ -98,15 +98,13 @@ def convert(path, dataset, check_sanity=False):
             # Every feature becomes a fact
             #   [[5, 0], -> feature1(molecule1, node1, 5), feature2(molecule1, node1, 0)
             #    [6,0]]  -> feature1(molecule1, node2, 6), feature2(molecule1, node2, 0)
-            if target != -1:
-            
-                facts.append(
-                    f"atomicNumber({molecule_name},{node_type},{atomic_number})."
-                )
+            facts.append(
+                f"atomicNumber({molecule_name},{node_type},{atomic_number})."
+            )
 
-                facts.append(
-                    f"chiralityNumber({molecule_name},{node_type},{chirality_number})."
-                )
+            facts.append(
+                f"chiralityNumber({molecule_name},{node_type},{chirality_number})."
+            )
 
             data_to_json[0][0]["atomicNumber"].append([molecule_name,node_type,atomic_number])
             data_to_json[0][0]["chiralityNumber"].append([molecule_name,node_type,chirality_number])
@@ -126,15 +124,13 @@ def convert(path, dataset, check_sanity=False):
 
             # Every edge becomes a fact too
             #   [[5, 0]] -> bond(molecule1, node1, node2, 5), stereo(molecule1, node1, node2, 0)
+            facts.append(
+                f"bond({molecule_name},{src_node_type},{dst_node_type},{bondtype})."
+            )
 
-            if target != -1:
-                facts.append(
-                    f"bond({molecule_name},{src_node_type},{dst_node_type},{bondtype})."
-                )
-
-                facts.append(
-                    f"stereo({molecule_name},{src_node_type},{dst_node_type},{stereo})."
-                )
+            facts.append(
+                f"stereo({molecule_name},{src_node_type},{dst_node_type},{stereo})."
+            )
 
             data_to_json[0][0]["bond"].append([molecule_name,src_node_type,dst_node_type,bondtype])
             data_to_json[0][0]["stereo"].append([molecule_name,src_node_type,dst_node_type,stereo])
