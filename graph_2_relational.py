@@ -1,4 +1,3 @@
-
 import json
 import torch
 import networkx as nx
@@ -109,12 +108,8 @@ def convert(path, dataset, check_sanity=False):
                     f"chiralityNumber({molecule_name},{node_type},{chirality_number})."
                 )
 
-            if target == -1:
-                data_to_json[1][0]["atomicNumber"].append([molecule_name,node_type,atomic_number])
-                data_to_json[1][0]["chiralityNumber"].append([molecule_name,node_type,chirality_number])
-            else:
-                data_to_json[0][0]["atomicNumber"].append([molecule_name,node_type,atomic_number])
-                data_to_json[0][0]["chiralityNumber"].append([molecule_name,node_type,chirality_number])
+            data_to_json[0][0]["atomicNumber"].append([molecule_name,node_type,atomic_number])
+            data_to_json[0][0]["chiralityNumber"].append([molecule_name,node_type,chirality_number])
         
         for idx in range(data.num_edges):
 
@@ -141,12 +136,8 @@ def convert(path, dataset, check_sanity=False):
                     f"stereo({molecule_name},{src_node_type},{dst_node_type},{stereo})."
                 )
 
-            if target == -1:
-                data_to_json[1][0]["bond"].append([molecule_name,src_node_type,dst_node_type,bondtype])
-                data_to_json[1][0]["stereo"].append([molecule_name,src_node_type,dst_node_type,stereo])
-            else:
-                data_to_json[0][0]["bond"].append([molecule_name,src_node_type,dst_node_type,bondtype])
-                data_to_json[0][0]["stereo"].append([molecule_name,src_node_type,dst_node_type,stereo])
+            data_to_json[0][0]["bond"].append([molecule_name,src_node_type,dst_node_type,bondtype])
+            data_to_json[0][0]["stereo"].append([molecule_name,src_node_type,dst_node_type,stereo])
 
     json.dump(data_to_json, open(f"{data_name}.json", "w"))
     
