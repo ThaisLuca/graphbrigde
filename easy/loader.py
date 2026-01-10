@@ -21,13 +21,13 @@ from tqdm import tqdm
 
 # allowable node and edge features
 allowable_features = {
-    'possible_atomic_num_list' : list(range(1, 119)),
+    'possible_atomic_num_list' : list(range(0, 119)),
     'possible_formal_charge_list' : [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5],
     'possible_chirality_list' : [
         Chem.rdchem.ChiralType.CHI_UNSPECIFIED,
         Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
         Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
-        Chem.rdchem.ChiralType.CHI_OTHER
+        Chem.rdchem.ChiralType.CHI_OTHER,
     ],
     'possible_hybridization_list' : [
         Chem.rdchem.HybridizationType.S,
@@ -42,7 +42,8 @@ allowable_features = {
         Chem.rdchem.BondType.SINGLE,
         Chem.rdchem.BondType.DOUBLE,
         Chem.rdchem.BondType.TRIPLE,
-        Chem.rdchem.BondType.AROMATIC
+        Chem.rdchem.BondType.AROMATIC,
+        Chem.rdchem.BondType.DATIVE
     ],
     'possible_bond_dirs' : [ # only for double bond stereo information
         Chem.rdchem.BondDir.NONE,
@@ -63,6 +64,7 @@ def mol_to_graph_data_obj_simple(mol):
     num_atom_features = 2   # atom type,  chirality tag
     atom_features_list = []
     for atom in mol.GetAtoms():
+        print(mol)
         atom_feature = [allowable_features['possible_atomic_num_list'].index(
             atom.GetAtomicNum())] + [allowable_features[
             'possible_chirality_list'].index(atom.GetChiralTag())]
@@ -933,30 +935,32 @@ class MoleculeDataset(InMemoryDataset):
 
         if self.dataset == 'zinc_standard_agent':
             input_path = self.raw_paths[0]
-            input_df = pd.read_csv(input_path, sep=',', compression='gzip',
+            print(input_path)
+            input_df = pd.read_csv(input_path, sep=',', compression='zip',
                                    dtype='str')
             smiles_list = list(input_df['smiles'])
             zinc_id_list = list(input_df['zinc_id'])
+            print(input_df.columns)
             for i in range(len(smiles_list)):
-                print(i)
+                #print(i)
                 s = smiles_list[i]
                 # each example contains a single species
-                try:
-                    rdkit_mol = AllChem.MolFromSmiles(s)
-                    if rdkit_mol != None:  # ignore invalid mol objects
-                        # # convert aromatic bonds to double bonds
-                        # Chem.SanitizeMol(rdkit_mol,
-                        #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
-                        data = mol_to_graph_data_obj_simple(rdkit_mol)
-                        # manually add mol id
-                        id = int(zinc_id_list[i].split('ZINC')[1].lstrip('0'))
-                        data.id = torch.tensor(
-                            [id])  # id here is zinc id value, stripped of
-                        # leading zeros
-                        data_list.append(data)
-                        data_smiles_list.append(smiles_list[i])
-                except:
-                    continue
+                #try:
+                rdkit_mol = AllChem.MolFromSmiles(s)
+                if rdkit_mol != None:  # ignore invalid mol objects
+                    # # convert aromatic bonds to double bonds
+                    # Chem.SanitizeMol(rdkit_mol,
+                    #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                    data = mol_to_graph_data_obj_simple(rdkit_mol)
+                    # manually add mol id
+                    id = int(zinc_id_list[i].split('ZINC')[1].lstrip('0'))
+                    data.id = torch.tensor(
+                        [id])  # id here is zinc id value, stripped of
+                    # leading zeros
+                    data_list.append(data)
+                    data_smiles_list.append(smiles_list[i])
+                #except:
+                    #continue
 
         elif self.dataset == 'chembl_filtered':
             ### get downstream test molecules.
@@ -1059,19 +1063,22 @@ class MoleculeDataset(InMemoryDataset):
             smiles_list, rdkit_mol_objs, labels = \
                 _load_hiv_dataset(self.raw_paths[0])
             for i in range(len(smiles_list)):
-                print(i)
-                rdkit_mol = rdkit_mol_objs[i]
+                #print(i)
+                rdkit_mol_hiv = rdkit_mol_objs[i]
                 # # convert aromatic bonds to double bonds
                 # Chem.SanitizeMol(rdkit_mol,
                 #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
-                data = mol_to_graph_data_obj_simple(rdkit_mol)
-                # manually add mol id
-                data.id = torch.tensor(
-                    [i])  # id here is the index of the mol in
-                # the dataset
-                data.y = torch.tensor([labels[i]])
-                data_list.append(data)
-                data_smiles_list.append(smiles_list[i])
+                try:
+                    data = mol_to_graph_data_obj_simple(rdkit_mol_hiv)
+                    # manually add mol id
+                    data.id = torch.tensor(
+                        [i])  # id here is the index of the mol in
+                    # the dataset
+                    data.y = torch.tensor([labels[i]])
+                    data_list.append(data)
+                    data_smiles_list.append(smiles_list[i])
+                except:
+                    pass
 
         elif self.dataset == 'bace':
             smiles_list, rdkit_mol_objs, folds, labels = \
@@ -1347,6 +1354,7 @@ class MoleculeDataset(InMemoryDataset):
                                   header=False)
 
         data, slices = self.collate(data_list)
+        print("DATA", len(data))
         torch.save((data, slices), self.processed_paths[0])
 
 # NB: only properly tested when dataset_1 is chembl_with_labels and dataset_2
@@ -1566,7 +1574,7 @@ def _load_hiv_dataset(input_path):
     """
     input_df = pd.read_csv(input_path, sep=',')
     smiles_list = input_df['smiles']
-    rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+    rdkit_mol_objs_list = [Chem.MolFromSmiles(s) for s in smiles_list]
     labels = input_df['HIV_active']
     # convert 0 to -1
     labels = labels.replace(0, -1)
