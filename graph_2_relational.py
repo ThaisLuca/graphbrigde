@@ -1,3 +1,4 @@
+import os
 import json
 import torch
 import networkx as nx
@@ -10,18 +11,19 @@ from torch_geometric.utils import to_networkx, from_networkx
 
 FOLD = 1
 
-datasets_to_go_relational = {"bace":    # molecule is an active BACE-1 inhibitor (binary label: active/inactive)
-                               {"target": "inhibitor"},
+datasets_to_go_relational = {
+                            #"bace":    # molecule is an active BACE-1 inhibitor (binary label: active/inactive)
+                            #   {"target": "inhibitor"},
                             #"bbbp": # Blood-brain barrier penetration (BBBP) dataset comes modeling and prediction of the barrier permeability (binary label: permeable/impermeable)
                             #    {"target": "permeability"},
                             #"hiv": 
                             #    {"target": "active"},
-                            #"clintox_toxicity": # clinical trial toxicity (or absence of toxicity)
+                            #"clintoxtoxicity": # clinical trial toxicity (or absence of toxicity)
                             #    {"target": "toxicity"},
-                            #"clintox_approve": # FDA approval status
+                            #"clintoxapproved": # FDA approval status
                             #    {"target": "approved"},
-                            #"zinc_standard_agent": # identify structures that are likely to bind to drug targets
-                            #    {"target": []}
+                            "zinc_standard_agent": # identify structures that are likely to bind to drug targets
+                                {"target": "soluble"}
                             }
 
 
@@ -52,16 +54,16 @@ def convert(path, dataset, check_sanity=False):
         [   # negatives
             {
                 target_name: [],
-                "atomicNumber": [],
-                "chiralityNumber": [],
-                "bond": [],
-                "stereo": []
+                #"atomicNumber": [],
+                #"chiralityNumber": [],
+                #"bond": [],
+                #"stereo": []
             }
         ]
     ]
     
     toxicity = False
-    if dataset in ["clintox_toxicity", "clintox_approve"]:
+    if dataset in ["clintoxtoxicity", "clintoxapproved"]:
         if "toxicity" in dataset:
             toxicity = True
         dataset = "clintox"
@@ -74,7 +76,10 @@ def convert(path, dataset, check_sanity=False):
         molecule_name = data_name + str(i+1)
 
         # Now identify if it is a positive/negative example!
-        target = data.y.tolist()[0]
+        if data_name in ["clintoxtoxicity", "clintoxapproved"] and not toxicity:
+            target = data.y.tolist()[1]
+        else:
+            target = data.y.tolist()[0]
 
         if target == -1:
             neg.append(
@@ -134,20 +139,26 @@ def convert(path, dataset, check_sanity=False):
 
             data_to_json[0][0]["bond"].append([molecule_name,src_node_type,dst_node_type,bondtype])
             data_to_json[0][0]["stereo"].append([molecule_name,src_node_type,dst_node_type,stereo])
-
-    json.dump(data_to_json, open(f"{data_name}.json", "w"))
     
     facts,pos,neg = list(set(facts)), list(set(pos)), list(set(neg))
     facts.sort()
-    return facts,pos,neg
+    return facts,pos,neg,data_to_json
 
 
 if __name__ == "__main__":
      
      for dataset in datasets_to_go_relational:
         PATH = f"dataset/{dataset}/processed/geometric_data_processed_{FOLD}.pt"
-        facts,pos,neg = convert(path=PATH, dataset=dataset, check_sanity=False)
+        facts,pos,neg,data_to_json = convert(path=PATH, dataset=dataset, check_sanity=False)
 
-        write_to_file("bk.pl", facts)
-        write_to_file("pos.pl", pos)
-        write_to_file("neg.pl", neg)
+        OUTPUT_PATH = f"dataset/{dataset}/transformed"
+        try:
+            os.makedirs(OUTPUT_PATH)
+        except:
+            pass
+
+        write_to_file(f"{OUTPUT_PATH}/bk.pl", facts)
+        write_to_file(f"{OUTPUT_PATH}/pos.pl", pos)
+        write_to_file(f"{OUTPUT_PATH}/neg.pl", neg)
+
+        json.dump(data_to_json, open(f"{OUTPUT_PATH}/{dataset}.json", "w"))
