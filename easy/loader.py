@@ -64,7 +64,6 @@ def mol_to_graph_data_obj_simple(mol):
     num_atom_features = 2   # atom type,  chirality tag
     atom_features_list = []
     for atom in mol.GetAtoms():
-        print(mol)
         atom_feature = [allowable_features['possible_atomic_num_list'].index(
             atom.GetAtomicNum())] + [allowable_features[
             'possible_chirality_list'].index(atom.GetChiralTag())]
@@ -352,10 +351,10 @@ class MoleculeDataset_aug(InMemoryDataset):
 
         if self.dataset == 'zinc_standard_agent':
             input_path = self.raw_paths[0]
-            input_df = pd.read_csv(input_path, sep=',', compression='gzip',
-                                   dtype='str')
+            input_df = pd.read_csv(input_path, sep=',')
             smiles_list = list(input_df['smiles'])
             zinc_id_list = list(input_df['zinc_id'])
+            labels = input_df['ZINC_reactive'].astype(int)
             for i in tqdm(range(len(smiles_list))):
                 # print(i)
                 s = smiles_list[i]
@@ -372,6 +371,8 @@ class MoleculeDataset_aug(InMemoryDataset):
                         data.id = torch.tensor(
                             [id])  # id here is zinc id value, stripped of
                         # leading zeros
+                        print(labels[i])
+                        data.y = torch.tensor(labels[i])
                         data_list.append(data)
                         data_smiles_list.append(smiles_list[i])
                 except:
@@ -935,12 +936,11 @@ class MoleculeDataset(InMemoryDataset):
 
         if self.dataset == 'zinc_standard_agent':
             input_path = self.raw_paths[0]
-            print(input_path)
-            input_df = pd.read_csv(input_path, sep=',', compression='zip',
+            input_df = pd.read_csv(input_path, sep=',', #compression='zip',
                                    dtype='str')
             smiles_list = list(input_df['smiles'])
             zinc_id_list = list(input_df['zinc_id'])
-            print(input_df.columns)
+            labels = input_df['ZINC_reactive'].astype(int)
             for i in range(len(smiles_list)):
                 #print(i)
                 s = smiles_list[i]
@@ -957,6 +957,7 @@ class MoleculeDataset(InMemoryDataset):
                     data.id = torch.tensor(
                         [id])  # id here is zinc id value, stripped of
                     # leading zeros
+                    data.y = torch.tensor([labels[i]])
                     data_list.append(data)
                     data_smiles_list.append(smiles_list[i])
                 #except:
@@ -1103,7 +1104,7 @@ class MoleculeDataset(InMemoryDataset):
             smiles_list, rdkit_mol_objs, labels = \
                 _load_bbbp_dataset(self.raw_paths[0])
             for i in range(len(smiles_list)):
-                print(i)
+                #print(i)
                 rdkit_mol = rdkit_mol_objs[i]
                 if rdkit_mol != None:
                     # # convert aromatic bonds to double bonds
@@ -1354,7 +1355,7 @@ class MoleculeDataset(InMemoryDataset):
                                   header=False)
 
         data, slices = self.collate(data_list)
-        print("DATA", len(data))
+        #print("DATA", len(data))
         torch.save((data, slices), self.processed_paths[0])
 
 # NB: only properly tested when dataset_1 is chembl_with_labels and dataset_2
@@ -1939,4 +1940,3 @@ def create_all_datasets():
 if __name__ == "__main__":
 
     create_all_datasets()
-
